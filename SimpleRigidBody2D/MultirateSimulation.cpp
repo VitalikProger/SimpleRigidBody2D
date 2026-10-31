@@ -1,5 +1,6 @@
 #include "MultirateSimulation.h"
 #include <cmath>
+#include <algorithm>
 
 MultirateSimulation::MultirateSimulation(float targetTimeStep)
   : accumulator(0.0f), timeStep(targetTimeStep) {
@@ -48,22 +49,49 @@ void MultirateSimulation::update(std::vector<RigidBody>& bodies, const std::vect
           bodies[i].position.y - bodies[i].radius < wBottom &&
           bodies[i].position.y + bodies[i].radius > wTop) {
 
-          if (bodies[i].position.x < wLeft) {
-            bodies[i].velocity.x = -std::abs(bodies[i].velocity.x) * RESTITUTION;
-            bodies[i].position.x = wLeft - bodies[i].radius;
+          float overlapX = 0.0f;
+          float overlapY = 0.0f;
+          sf::Vector2f normal(0.0f, 0.0f);
+
+          float midX = bodies[i].position.x;
+          float distToLeft = std::abs(midX + bodies[i].radius - wLeft);
+          float distToRight = std::abs(wRight - (midX - bodies[i].radius));
+
+          if (distToLeft < distToRight) {
+            overlapX = distToLeft;
+            normal.x = -1.0f;
           }
-          else if (bodies[i].position.x > wRight) {
-            bodies[i].velocity.x = std::abs(bodies[i].velocity.x) * RESTITUTION;
-            bodies[i].position.x = wRight + bodies[i].radius;
+          else {
+            overlapX = distToRight;
+            normal.x = 1.0f;
           }
 
-          if (bodies[i].position.y < wTop) {
-            bodies[i].velocity.y = -std::abs(bodies[i].velocity.y) * RESTITUTION;
-            bodies[i].position.y = wTop - bodies[i].radius;
+          float midY = bodies[i].position.y;
+          float distToTop = std::abs(midY + bodies[i].radius - wTop);
+          float distToBottom = std::abs(wBottom - (midY - bodies[i].radius));
+
+          if (distToTop < distToBottom) {
+            overlapY = distToTop;
+            normal.y = -1.0f;
           }
-          else if (bodies[i].position.y > wBottom) {
-            bodies[i].velocity.y = std::abs(bodies[i].velocity.y) * RESTITUTION;
-            bodies[i].position.y = wBottom + bodies[i].radius;
+          else {
+            overlapY = distToBottom;
+            normal.y = 1.0f;
+          }
+
+          if (overlapX < overlapY) {
+            bodies[i].position.x += normal.x * overlapX;
+            float dot = bodies[i].velocity.x * normal.x;
+            if (dot < 0.0f) {
+              bodies[i].velocity.x -= (1.0f + RESTITUTION) * dot * normal.x;
+            }
+          }
+          else {
+            bodies[i].position.y += normal.y * overlapY;
+            float dot = bodies[i].velocity.y * normal.y;
+            if (dot < 0.0f) {
+              bodies[i].velocity.y -= (1.0f + RESTITUTION) * dot * normal.y;
+            }
           }
         }
       }
